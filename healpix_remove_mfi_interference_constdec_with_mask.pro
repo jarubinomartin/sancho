@@ -1,7 +1,8 @@
 ;   23/05/2017   JARM
 ;
-;   Removes MFI interference by substracting a constant pattern in declination
-;   Input is a healpix map (RING ordering)
+;   Removes MFI interference by substracting a constant pattern in
+;   declination (FDEC). 
+;   Input is a healpix map (RING ordering is assumed).
 ;
 ;-
 ;
@@ -64,18 +65,26 @@ END
 
 ;========================================
 
-PRO healpix_remove_mfi_interference_constdec_with_mask, map_in, map2, order_in=order_in, nside=nside, dipole=dipole, gal_cut=gal_cut,pol=pol, maskI=maskI, maskP=maskP, $
-	Ifdec=fdec_I, Qfdec=fdec_Qr, Ufdec=fdec_Ur
+PRO healpix_remove_mfi_interference_constdec_with_mask, map_in, map2, order_in=order_in, nside=nside, $
+   dipole=dipole, gal_cut=gal_cut,pol=pol, maskI=maskI, maskP=maskP, $
+   Ifdec=fdec_I, Qfdec=fdec_Qr, Ufdec=fdec_Ur
 
 ; Info
 if n_params() eq 0 then begin
    print,""
-   print,"   Syntax -- healpix_remove_mfi_interference_constdec_with_mask, map_in, map_out, order_in=order_in, nside=nside, [, /DIPOLE, /POL, maskI=maskI, maskP=maskP ] "
+   print,"   Syntax -- healpix_remove_mfi_interference_constdec_with_mask, map_in, map_out, order_in=order_in, nside=nside, [, /DIPOLE, /POL, maskI=maskI, maskP=maskP, Ifdec=, Qfdec=, Ufdec= ] "
 
    print,""
    print,"   Default ordering is RING. Output ordering is RING"
    print,"   If set /dipole, it also removes a dipole from each map. "
    print,"   Default maskI is a map of ones everywhere. Default maskP is maskI."
+   print,"   If /POL is active, then the FDEC is applied to polarization maps also. "
+   print," "
+   print,"   INPUT: "
+   print,"        map_in, either (npix) or (npix,3). "
+   print,"   OUTPUT: "
+   print,"        map_out after filtering with FDEC. If requested, the fitted function of declination is "
+   print,"        also returned as Ifdec=fdec_I, Qfdec=fdec_Qr, Ufdec=fdec_Ur"
    print,""
    print,"   Example:  "
    print,"       IDL> maskI = annular_mask(10.0,-10.0,nside) "
@@ -97,6 +106,8 @@ if nside eq 0 then begin
    nside = npix2nside(npix)
 endif 
 
+; Compute nmaps (1 for intensity, 3 for int and polarization).
+nmaps = n_elements(map_in[0,*])
 
 ; additional masks
 if maskI eq !null then begin
@@ -127,7 +138,9 @@ endif
 
 map1 = map1nomask
 map1[*,0] *= dmaskI
-for p=1,2 do map1[*,p] *= dmaskP
+if nmaps ge 3 then begin
+   for p=1,2 do map1[*,p] *= dmaskP
+endif
 
 ; Output map
 map2 = map1nomask
