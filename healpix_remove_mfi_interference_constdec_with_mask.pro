@@ -81,10 +81,10 @@ if n_params() eq 0 then begin
    print,"   If /POL is active, then the FDEC is applied to polarization maps also. "
    print," "
    print,"   INPUT: "
-   print,"        map_in, either (npix) or (npix,3). "
+   print,"        map_in, either (npix) or (npix,3). If map_in has more than 3 maps, they are ignored. "
    print,"   OUTPUT: "
-   print,"        map_out after filtering with FDEC. If requested, the fitted function of declination is "
-   print,"        also returned as Ifdec=fdec_I, Qfdec=fdec_Qr, Ufdec=fdec_Ur"
+   print,"        map_out after filtering with FDEC, either (npix) or (npix,3). If requested, the fitted function "
+   print,"        of declination is also returned as Ifdec=fdec_I, Qfdec=fdec_Qr, Ufdec=fdec_Ur"
    print,""
    print,"   Example:  "
    print,"       IDL> maskI = annular_mask(10.0,-10.0,nside) "
@@ -106,8 +106,9 @@ if nside eq 0 then begin
    nside = npix2nside(npix)
 endif 
 
-; Compute nmaps (1 for intensity, 3 for int and polarization).
+; Compute nmaps (1 for intensity, 3 for intensity+polarization).
 nmaps = n_elements(map_in[0,*])
+if nmaps ge 3 then nmaps = 3
 
 ; additional masks
 if maskI eq !null then begin
@@ -136,14 +137,14 @@ if (strupcase(order_in) ne "RING") then begin
    dmaskP = reorder(dmaskP, /N2R)
 endif
 
-map1 = map1nomask
+map1 = map1nomask[*,0:nmaps-1] ; forcing to have 1 or 3.
 map1[*,0] *= dmaskI
 if nmaps ge 3 then begin
    for p=1,2 do map1[*,p] *= dmaskP
 endif
 
 ; Output map
-map2 = map1nomask
+map2 = map1nomask[*,0:nmaps-1] ; forcing to have 1 or 3.
 print," (*) Removing interference pattern (assuming constant declination) with mask"
 
 npix = nside2npix(nside*1L)
