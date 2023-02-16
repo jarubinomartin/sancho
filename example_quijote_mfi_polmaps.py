@@ -4,10 +4,13 @@
 Created on 15/Feb/2023
  
 Script to illustrate the basic properties of QUIJOTE MFI wide maps in polarization:
-A) Basic display of the maps
+A) Basic display of the maps 
 B) Example of noise properties from half mission maps
-C) Noise levels in power spectra
-D) Noise cross-correlation 11x13
+C) Noise levels in power spectra.
+D) Noise cross-correlation 11x13.
+
+Maps can be downloaded from either the QUIJOTE web (https://research.iac.es/proyecto/quijote/), 
+PLA (http://pla.esac.esa.int/pla/#maps) or LAMBDA (https://lambda.gsfc.nasa.gov/product/quijote/).
 
 @author: jalberto
 """
@@ -15,7 +18,6 @@ D) Noise cross-correlation 11x13
 import numpy as np
 import healpy as hp
 import matplotlib.pyplot as plt
-import pymaster as nmt
 
 
 # Read half-mission maps and prepares noise map
@@ -68,9 +70,10 @@ hp.mollview(mfi11s[1],max=2,min=-2,norm='hist',title='Q 11GHz')
 hp.mollview(mfi13s[1],max=2,min=-2,norm='hist',title='Q 13GHz')
 plt.show()
 
-# Analysis mask, apodized
+# Analysis mask. No apodization applied. 
 masc = hp.read_map(path+'masks/mask_quijote_ncp_lowdec_satband_nside512.fits',field=[0],nest=False)
-#masc = nmt.mask_apodization(masc_raw, 5.0, apotype="C2")
+hp.mollview(masc,title='Standard QUIJOTE mask')
+plt.show()
 
 
 # B) Noise maps for 11 and 13GHz, from half mission maps
@@ -101,7 +104,6 @@ plt.title(r'EE spectra at 11 GHz')
 plt.legend(loc='upper right', ncol=2, labelspacing=0.1)
 plt.show()
 
-print(cl_11[1])
 
 # D) Cross-spectrum 11x13. Compare to Fig. 17 in Rubino-Martin et al. (2023).
 ell, cl_11_13 = run_anafast(n11, n13, masc) # cross-spectrum

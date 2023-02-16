@@ -9,6 +9,9 @@ B) Example of noise properties from half mission maps
 C) Noise levels in power spectra
 D) Noise cross-correlation 11x13
 
+Maps can be downloaded from either the QUIJOTE web (https://research.iac.es/proyecto/quijote/), 
+PLA (http://pla.esac.esa.int/pla/#maps) or LAMBDA (https://lambda.gsfc.nasa.gov/product/quijote/). 
+
 @author: jalberto
 """
 
@@ -63,9 +66,10 @@ hp.mollview(mfi11s,max=100,min=-5,norm='hist',title='11GHz')
 hp.mollview(mfi13s,max=100,min=-5,norm='hist',title='13GHz')
 plt.show()
 
-# Analysis mask, apodized
+# Analysis mask. No apodization applied. 
 masc = hp.read_map(path+'masks/mask_quijote_ncp_lowdec_satband_nside512.fits',field=[0],nest=False)
-#masc = nmt.mask_apodization(masc_raw, 5.0, apotype="C2")
+hp.mollview(masc,title='Standard QUIJOTE mask')
+plt.show()
 
 
 # B) Noise maps for 11 and 13GHz, from half mission maps
