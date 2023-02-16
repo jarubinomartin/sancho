@@ -23,11 +23,11 @@ import pymaster as nmt
 
 # Read half-mission maps and prepares noise map
 def prepare_noise_map(path,txtfreq):
-    h1 = hp.read_map(path+'quijote_mfi_skymap_'+txtfreq+'ghz_512_dr1_half1.fits',field=[0],nest=False)
-    h2 = hp.read_map(path+'quijote_mfi_skymap_'+txtfreq+'ghz_512_dr1_half2.fits',field=[0],nest=False)
+    h1 = hp.read_map(path+'quijote_mfi_skymap_'+txtfreq+'ghz_512_dr1_half1.fits',field=["I_STOKES"],nest=False)
+    h2 = hp.read_map(path+'quijote_mfi_skymap_'+txtfreq+'ghz_512_dr1_half2.fits',field=["I_STOKES"],nest=False)
 
-    w1  = hp.read_map(path+'quijote_mfi_skymap_'+txtfreq+'ghz_512_dr1_half1.fits',field=[5],nest=False)
-    w2  = hp.read_map(path+'quijote_mfi_skymap_'+txtfreq+'ghz_512_dr1_half2.fits',field=[5],nest=False)
+    w1  = hp.read_map(path+'quijote_mfi_skymap_'+txtfreq+'ghz_512_dr1_half1.fits',["WEI_I"],nest=False)
+    w2  = hp.read_map(path+'quijote_mfi_skymap_'+txtfreq+'ghz_512_dr1_half2.fits',["WEI_I"],nest=False)
     w1[np.isnan(w1)]=0
     w2[np.isnan(w2)]=0
     w1[w1<0]=0 # Healpy bad values
@@ -57,10 +57,8 @@ nside = 512
 path = '../'
 
 # A) Display smoothed 1deg maps
-mfi11s = hp.read_map(path+'quijote_mfi_smth_skymap_11ghz_512_dr1.fits',field=[0],nest=False)
-mfi13s = hp.read_map(path+'quijote_mfi_smth_skymap_13ghz_512_dr1.fits',field=[0],nest=False)
-mfi17s = hp.read_map(path+'quijote_mfi_smth_skymap_17ghz_512_dr1.fits',field=[0],nest=False)
-mfi19s = hp.read_map(path+'quijote_mfi_smth_skymap_19ghz_512_dr1.fits',field=[0],nest=False)
+mfi11s = hp.read_map(path+'quijote_mfi_smth_skymap_11ghz_512_dr1.fits',field=["I_STOKES"],nest=False)
+mfi13s = hp.read_map(path+'quijote_mfi_smth_skymap_13ghz_512_dr1.fits',field=["I_STOKES"],nest=False)
 
 hp.mollview(mfi11s,max=100,min=-5,norm='hist',title='11GHz')
 hp.mollview(mfi13s,max=100,min=-5,norm='hist',title='13GHz')
@@ -82,7 +80,7 @@ plt.show()
 
 
 # C) Noise levels. Compare with Fig. 15 and 16 in Rubino-Martin et al. (2023).
-mfi11 = hp.read_map(path+'quijote_mfi_skymap_11ghz_512_dr1.fits',field=[0],nest=False)
+mfi11 = hp.read_map(path+'quijote_mfi_skymap_11ghz_512_dr1.fits',field=["I_STOKES"],nest=False)
 ell, clsky_11 = run_anafast_int(mfi11, mfi11, masc) 
 ell, cl_11 = run_anafast_int(n11, n11, masc)
 
@@ -95,7 +93,7 @@ plt.yscale('log')
 plt.xlim([20,700])
 plt.ylim([1e-7,1e0])
 plt.xlabel(r'$\ell$', fontsize=16)
-plt.ylabel(r'$C_\ell$ [mK$^2$]' , fontsize=16)
+plt.ylabel(r'$C_\ell^{TT}$ [mK$^2$]' , fontsize=16)
 plt.title(r'Spectra 11 GHz')
 plt.legend(loc='upper right', ncol=2, labelspacing=0.1)
 plt.show()

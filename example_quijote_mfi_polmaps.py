@@ -22,11 +22,14 @@ import matplotlib.pyplot as plt
 
 # Read half-mission maps and prepares noise map
 def prepare_noise_map(path,txtfreq):
-    h1 = hp.read_map(path+'quijote_mfi_skymap_'+txtfreq+'ghz_512_dr1_half1.fits',field=[0,1,2],nest=False)
-    h2 = hp.read_map(path+'quijote_mfi_skymap_'+txtfreq+'ghz_512_dr1_half2.fits',field=[0,1,2],nest=False)
+    comp = "IQU"
+    ff1  = path+'quijote_mfi_skymap_'+txtfreq+'ghz_512_dr1_half1.fits'
+    ff2  = path+'quijote_mfi_skymap_'+txtfreq+'ghz_512_dr1_half2.fits'
+    h1   = hp.read_map(ff1,[c + "_STOKES" for c in comp],nest=False)
+    h2   = hp.read_map(ff2,[c + "_STOKES" for c in comp],nest=False)
 
-    w1  = hp.read_map(path+'quijote_mfi_skymap_'+txtfreq+'ghz_512_dr1_half1.fits',field=[5,6,7],nest=False)
-    w2  = hp.read_map(path+'quijote_mfi_skymap_'+txtfreq+'ghz_512_dr1_half2.fits',field=[5,6,7],nest=False)
+    w1  = hp.read_map(ff1,["WEI_"+c for c in comp],nest=False)
+    w2  = hp.read_map(ff2,["WEI_"+c for c in comp],nest=False)
     w1[np.isnan(w1)]=0
     w2[np.isnan(w2)]=0
     w1[w1<0]=0  # Healpy bad values
@@ -88,7 +91,7 @@ plt.show()
 # C) Noise levels. Compare with Fig. 15 and 16 in Rubino-Martin et al. (2023).
 mfi11 = hp.read_map(path+'quijote_mfi_skymap_11ghz_512_dr1.fits',field=[0,1,2],nest=False)
 ell, clsky_11 = run_anafast(mfi11, mfi11, masc) 
-ell, cl_11 = run_anafast(n11, n11, masc)
+ell, cl_11    = run_anafast(n11, n11, masc)
 
 plt.plot(ell,clsky_11[1],label='signal EE 11GHz')
 plt.plot(ell,cl_11[1],label='noise EE 11GHz half')
