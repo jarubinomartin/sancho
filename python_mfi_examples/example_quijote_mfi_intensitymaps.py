@@ -52,6 +52,7 @@ def run_anafast_int(m1, m2, masc):
 
 # Main code
 nside = 512
+npix  = hp.nside2npix(nside)
 
 # Path to QUIJOTE maps
 path = '../'
@@ -79,15 +80,23 @@ hp.mollview(n13*masc,max=5,min=-5,norm='hist',title='Noise 13GHz')
 plt.show()
 
 
+
 # C) Noise levels. Compare with Fig. 15 and 16 in Rubino-Martin et al. (2023).
 mfi11 = hp.read_map(path+'quijote_mfi_skymap_11ghz_512_dr1.fits',field=["I_STOKES"],nest=False)
 ell, clsky_11 = run_anafast_int(mfi11, mfi11, masc) 
-ell, cl_11 = run_anafast_int(n11, n11, masc)
+ell, cl_11    = run_anafast_int(n11, n11, masc)
+
+# Simplified noise realization: anisotropic white noise.
+wei   = hp.read_map(path+'quijote_mfi_skymap_11ghz_512_dr1.fits',["WEI_I"],nest=False)
+nsimu = np.random.randn(npix)*(1./np.sqrt(wei))
+nsimu[wei<=0]=0 # zeros and bad values.
+ell, cl_sim   = run_anafast_int(nsimu, nsimu, masc)
 
 plt.plot(ell,clsky_11,label='signal 11GHz')
 plt.plot(ell,cl_11,label='noise 11GHz half')
 nbestfit = 2.56e-6 * (1 + (221.4/ell)**1.27) # Values from Table 11, Rubino-Martin et al. (2023).
 plt.plot(ell,nbestfit,label='Fitted noise')
+plt.plot(ell,cl_sim,label='anisotropic white noise sim')
 plt.xscale('log')
 plt.yscale('log')
 plt.xlim([20,700])
@@ -99,7 +108,6 @@ plt.legend(loc='upper right', ncol=2, labelspacing=0.1)
 plt.show()
 
 
-
 # D) Cross-spectrum 11x13. Compare to Fig. 17 in Rubino-Martin et al. (2023).
 ell, cl_11_13 = run_anafast_int(n11, n13, masc) # cross-spectrum
 ell, cl_11 = run_anafast_int(n11, n11, masc)
@@ -107,6 +115,7 @@ ell, cl_13 = run_anafast_int(n13, n13, masc)
 
 rho = cl_11_13/np.sqrt(cl_11*cl_13) * 100.0 # in percentage
 print('Average correlation 11x13 TT (20<l<200) = ', np.mean( rho[np.argwhere((ell >=20) & (ell <=200))] ))
+
 
 plt.plot(ell,rho)
 plt.xscale('log')

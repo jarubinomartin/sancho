@@ -47,8 +47,8 @@ def run_anafast(m1, m2, masc):
     lmax  = 2*nside
     fsky  = np.sum(masc)/float(npix)
     
-    m1m   = m1
-    m2m   = m2
+    m1m   = np.copy(m1)
+    m2m   = np.copy(m2)
     for i in np.arange(3):
         m1m[i,:] *= masc
         m2m[i,:] *= masc
@@ -61,6 +61,7 @@ def run_anafast(m1, m2, masc):
 
 # Main code
 nside = 512
+npix  = hp.nside2npix(nside)
 
 # Path to QUIJOTE maps
 path = '../'
@@ -93,10 +94,18 @@ mfi11 = hp.read_map(path+'quijote_mfi_skymap_11ghz_512_dr1.fits',field=[0,1,2],n
 ell, clsky_11 = run_anafast(mfi11, mfi11, masc) 
 ell, cl_11    = run_anafast(n11, n11, masc)
 
+# Simplified noise realization: anisotropic white noise.
+wei   = hp.read_map(path+'quijote_mfi_skymap_11ghz_512_dr1.fits',['WEI_I','WEI_Q','WEI_U'],nest=False)
+nsimu = np.random.randn(3,npix)*(1./np.sqrt(wei))
+nsimu[wei<=0]=0 # zeros and bad values.
+ell, cl_sim   = run_anafast(nsimu, nsimu, masc)
+
+
 plt.plot(ell,clsky_11[1],label='signal EE 11GHz')
 plt.plot(ell,cl_11[1],label='noise EE 11GHz half')
 nbestfit = 6.13e-7 * (1 + (86.0/ell)**1.24) # Values from Table 11, Rubino-Martin et al. (2023).
-plt.plot(ell,nbestfit,label='Fitted noise')
+plt.plot(ell,nbestfit,label='EE Fitted noise')
+plt.plot(ell,cl_sim[1],label='EE anisotropic white noise sim')
 plt.xscale('log')
 plt.yscale('log')
 plt.xlim([20,700])
