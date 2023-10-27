@@ -5,11 +5,11 @@
 
 @authors: jalberto, mpeel, rjh
 
-
 Basic I/O routines for the data processing of TFGI data.
 * read_tfgi_pixel_masterfile
 * read_tfgi_tod2 
 * read_tfgi_btod2
+* read_tfgi_ctod2
 * read_tfgi_sci2
 
 * write_tfgi_btod2
@@ -17,6 +17,7 @@ Basic I/O routines for the data processing of TFGI data.
 
 HISTORY:
 * 10/07/2023 - original version. JARM
+* 25/10/2023 - updated read_tfgi_btod2, to include WEI_IQU. Added read_tfgi_ctod2
 
 """
 
@@ -161,7 +162,57 @@ def read_tfgi_tod2(filename):
 #   ELHORN          FLOAT     Array[7, 123885]
 #   MSBIN           FLOAT           4.00000
 #   POINTINGMODEL   STRING    'MFT-Feb2022'
+#   WEI_IQU         FLOAT     Array[28, 3, 123885]  # This field is only present in binned data.
 def read_tfgi_btod2(filename):
+    print(' READ_TFGI_BTOD2: reading '+filename)
+    hdulist = fits.open(filename)
+    cont    = hdulist[1].data
+    names   = np.asarray(cont.names)
+
+    nhorns   = cont['NHORNS'][0]
+    listchan = cont['LISTCHAN'][0,:] 
+    listpix  = cont['LISTPIX'][0,:] 
+    listdas  = cont['LISTDAS'][0,:] 
+    
+    jd       = cont['JD'][0,:]
+    az       = cont['AZ'][0,:]
+    el       = cont['EL'][0,:]
+    gl       = cont['GL'][0,:,:]
+    gb       = cont['GB'][0,:,:]
+    par      = cont['PAR'][0,:,:]
+
+    data     = cont['DATA'][0,:,:,:]
+    flag     = cont['FLAG'][0,:,:,:]
+    wei      = cont['WEI'][0,:,:,:]
+
+    azhorn   = cont['AZHORN'][0,:,:]
+    elhorn   = cont['ELHORN'][0,:,:]
+
+    msbin    = cont['MSBIN'][0]
+    pmodel   = cont['POINTINGMODEL'][0]
+
+    # WEI_IQU. This field only appears in binned BTOD files.
+    di       = np.argwhere(names == 'WEI_IQU')
+    if len(di)==1:
+        wei_iqu  = cont['WEI_IQU'][0,:,:,:]
+    else:
+        nsamp    = len(jd)
+        wei_iqu  = np.zeros((nsamp,3,nhorns*4))
+        print(' READ_TFGI_BTOD2: warning -- WEI_IQU field is not present. Setting values to zero. ')
+
+    # Output dictionary
+    btod  = {'NHORNS':nhorns, 'LISTCHAN':listchan, 'LISTPIX':listpix, 'LISTDAS':listdas,
+                 'JD':jd, 'AZ':az, 'EL':el,'GL':gl, 'GB':gb, 'PAR':par, 'DATA':data, 'FLAG':flag,
+                 'WEI':wei, 'AZHORN':azhorn, 'ELHORN':elhorn, 'MSBIN':msbin, 'POINTINGMODEL':pmodel, 'WEI_IQU':wei_iqu }
+    hdulist.close()
+    
+    return(btod)
+
+
+###################
+# READ CTOD2 FILE. Same format at BTOD2, but with few extra fields related to gains.
+def read_tfgi_ctod2(filename):
+    print(' READ_TFGI_CTOD2: reading '+filename)
     hdulist = fits.open(filename)
     cont    = hdulist[1].data
 
@@ -187,13 +238,19 @@ def read_tfgi_btod2(filename):
     msbin    = cont['MSBIN'][0]
     pmodel   = cont['POINTINGMODEL'][0]
 
+    wei_iqu  = cont['WEI_IQU'][0,:,:,:]
+    gainmodel = cont['GAINMODEL'][0]
+    gains    = cont['GAINS'][0,:,:]
+
     # Output dictionary
-    btod  = {'NHORNS':nhorns, 'LISTCHAN':listchan, 'LISTPIX':listpix, 'LISTDAS':listdas,
+    ctod  = {'NHORNS':nhorns, 'LISTCHAN':listchan, 'LISTPIX':listpix, 'LISTDAS':listdas,
                  'JD':jd, 'AZ':az, 'EL':el,'GL':gl, 'GB':gb, 'PAR':par, 'DATA':data, 'FLAG':flag,
-                 'WEI':wei, 'AZHORN':azhorn, 'ELHORN':elhorn, 'MSBIN':msbin, 'POINTINGMODEL':pmodel }
+                 'WEI':wei, 'AZHORN':azhorn, 'ELHORN':elhorn, 'MSBIN':msbin, 'POINTINGMODEL':pmodel,
+                 'WEI_IQU':wei_iqu, 'GAINMODEL':gainmodel, 'GAINS':gains }
     hdulist.close()
     
-    return(btod)
+    return(ctod)
+
 
 
 # Write BTOD2 file. An example of the format in header is:
