@@ -6,4 +6,7 @@ See details in [Rubino-Martin et al. (2023)](https://ui.adsabs.harvard.edu/abs/2
 
 2) python_mfi_examples. Contains example python codes to show the basic properties of the QUIJOTE MFI wide survey maps (DR1). Maps can be downloaded from either the [QUIJOTE web](https://research.iac.es/proyecto/quijote/), [PLA](http://pla.esac.esa.int/pla/#maps) or [LAMBDA](https://lambda.gsfc.nasa.gov/product/quijote/). 
 
+3) TFGI pipeline. New python routines for the basic processing of QUIJOTE TFGI data. 
+
+
 
