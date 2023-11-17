@@ -9,6 +9,7 @@ Implementation of the naive map-making for TFGI btod2 or ctod2 lists of files
 
 HISTORY:
 * 26/10/2023 - original version. JARM.
+*  3/11/2023 - added horns as input option. Limits the computation of the maps to a sublist.
 
 """
 
@@ -17,10 +18,11 @@ import healpy as hp
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from sancho_tfgi_io import read_tfgi_btod2
+import sys
 
 
-def mambrino_tfgi(root, path='/net/calp-nas/proyectos/quijote2/ctod/',tail='.ctod2', nside=512, nest=False, nhorns=7,
-                      dobaserm=True, t_base=6.0, usewei=True):
+def mambrino_tfgi(root, path='/net/calp-nas/proyectos/quijote2/ctod/',tail='.ctod2', nside=512, nest=False, nhorns=7, 
+                      horns=np.arange(7), dobaserm=True, t_base=6.0, usewei=True):
     '''
     Keywords:
        * dobaserm : if True, removes baseline computing the median of the data in scans of length t_base.
@@ -34,10 +36,12 @@ def mambrino_tfgi(root, path='/net/calp-nas/proyectos/quijote2/ctod/',tail='.cto
     print('*** MAMBRINO_TFGI code ***')
     print('')
     print(' Settings:')
+    print('    Path                            = ',path)
     print('    Output NSIDE                    = ',nside)
     print('    Remove baseline (median filter) = ',dobaserm)
     if dobaserm: print('    Baseline length (secs)          = ',t_base)
     print('    Use WEI_IQU                     = ',usewei)
+    print('    Making maps for horns           = ',horns)
     print('')
 
     # Main loop
@@ -57,17 +61,19 @@ def mambrino_tfgi(root, path='/net/calp-nas/proyectos/quijote2/ctod/',tail='.cto
         msbin = btod['MSBIN'] 
 
         nsamp = len(gl[:,0])
+        if nsamp != np.max(gl.shape):
+            sys.exit('SYS.EXIT() -- incorrect nsamp. ')
         navg  = np.int32(t_base*1000/msbin)
         nbase = np.max([1,np.int32(nsamp/navg)])
     
-        k = -1
-        for ihorn in np.arange(nhorns):
+        for ihorn in horns:
             theta = np.deg2rad( 90.0 - gb[:,ihorn] )
             phi   = np.deg2rad( gl[:,ihorn] )
             ipix  = hp.ang2pix(nside, theta, phi, nest=nest)
 
             for ichan in np.arange(4):
-                k +=1
+                k = ihorn*4 + ichan
+                
                 # Preparing Intensity maps only
                 Vd    = ( data[:,0,k] + data[:,1,k] + data[:,2,k] + data[:,3,k] ) / 2.
                 flagd = flag[:,0,k] + flag[:,1,k] + flag[:,2,k] + flag[:,3,k]
@@ -82,7 +88,7 @@ def mambrino_tfgi(root, path='/net/calp-nas/proyectos/quijote2/ctod/',tail='.cto
                     Vd_smth = np.zeros_like(Vd)
                     for j in np.arange(nbase):
                         i1 = np.int64(j * navg)
-                        i2 = i1 + navg - 1
+                        i2 = i1 + navg #- 1 in python
 
                         datos = Vd[i1:i2]
                         flags = flagd[i1:i2]
@@ -131,14 +137,23 @@ def write_mambrino_tfgi_maps(mapa,nhits,ffout='test_mambrino.fits'):
 if __name__ == "__main__":
 
     # Example path and list of files
-    path  = '/net/calp-nas/proyectos/quijote2/btod/test/' 
-    root  = np.loadtxt('/net/calp-nas/proyectos/quijote2/list/perseus/Perseus_TGI_flagged_pix21_selection_60pc_allbtod2.txt',unpack=True,dtype='U')
+    path  = '/Users/jalberto/quijote/data/' 
+    root  =  np.asarray(['CRAB-211130-0230-000','CRAB-211130-0230-001','CRAB-211130-0230-002','CRAB-211130-0230-003'])
     tail  = '.btod2'
     nside = 512
     nest  = False
 
+    #mapa, nhits = mambrino_tfgi(root, path=path,tail=tail, nside=nside, nest=nest, nhorns=7, horns=np.asarray([2]), usewei=False)
     mapa, nhits = mambrino_tfgi(root, path=path,tail=tail, nside=nside, nest=nest, nhorns=7, usewei=False)
 
+    # Display
+    hp.gnomview(mapa[:,0],rot=[185,-5],norm='hist',reso=3,xsize=500)
+    hp.gnomview(nhits[:,0],rot=[185,-5],norm='hist',reso=3,xsize=500)
+    plt.show()
+
+    hp.write_map('testmam.fits',mapa[:,0],nest=nest,coord='G',overwrite=True)
+
+    
     # Write all maps to FITS file
-    write_mambrino_tfgi_maps(mapa,nhits,ffout='mambrino_perseus_pix21_60pc.fits')
+    write_mambrino_tfgi_maps(mapa,nhits,ffout='test_mambrino.fits')
 
