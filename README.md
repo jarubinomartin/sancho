@@ -8,5 +8,7 @@ See details in [Rubino-Martin et al. (2023)](https://ui.adsabs.harvard.edu/abs/2
 
 3) TFGI pipeline. New python routines for the basic processing of QUIJOTE TFGI data. 
 
+4) MFI pipeline. IDL routines used in the MFI pipeline.
+
 
 
