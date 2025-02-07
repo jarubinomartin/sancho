@@ -11,6 +11,8 @@ HISTORY:
 * 26/10/2023 - original version. JARM. Only intensity.
 *  3/11/2023 - added horns as input option. Limits the computation of the maps to a sublist.
 * 12/02/2024 - Now including polarization map-making. Tested with TauA simulations.
+* 17/12/2024 - sancho_mambrino2_tfgi. Now accepts a different list for each pixel/DAS number, as it is the usual case. 
+               Thus, the input is now the lists of files
 
 """
 
@@ -21,18 +23,18 @@ from astropy.io import fits
 from sancho_tfgi_io import read_tfgi_btod2
 import sys
 
-def mambrino_tfgi(root, path='/net/calp-nas/proyectos/quijote2/ctod/',tail='.ctod2', nside=512, nest=False, nhorns=7, horns=np.arange(7), dobaserm=True, t_base=6.0, usewei=True, istgi=np.ones(7,dtype=bool)):
+def mambrino2_tfgi(fflist=np.array(['/net/calp-nas/proyectos/quijote2/tfgi/list/crab/crab_2201.txt']*7), path='/net/calp-nas/proyectos/quijote2/ctod/',tail='.ctod2',
+                   nside=512, nest=False, nhorns=7, horns=np.arange(7), dobaserm=True, t_base=6.0, usewei=True, istgi=np.ones(7,dtype=bool)):
     '''
     Keywords:
        * dobaserm : if True, removes baseline computing the median of the data in scans of length t_base.
-       * t_base   : baseline size in seconds.
+       * t_base   : baseline size in seconds. Default is 6.0 seconds.
        * usewei   : if True, uses the WEI_IQU information.
     '''
 
-    nf   = len(root)
 
     # Display basic info
-    print('*** MAMBRINO_TFGI intensity and polarization code ***')
+    print('*** MAMBRINO2_TFGI intensity and polarization code ***')
     print('')
     print(' Settings:')
     print('    Path                            = ',path)
@@ -43,7 +45,14 @@ def mambrino_tfgi(root, path='/net/calp-nas/proyectos/quijote2/ctod/',tail='.cto
     print('    Making maps for horns           = ',horns)
     print('')
 
-    # Main loop
+    # Basic checks
+    if len(horns) != len(fflist):
+        sys.exit('SYS.EXIT() -- incorrect dimensions of fflist.')
+    if len(horns) != len(istgi):
+        sys.exit('SYS.EXIT() -- incorrect dimensions of istgi.')
+
+        
+    # Main loop over horns
     npix   = hp.nside2npix(nside)
     mapa   = np.zeros((npix,nhorns*4))
     deno   = np.zeros((npix,nhorns*4))
@@ -55,25 +64,36 @@ def mambrino_tfgi(root, path='/net/calp-nas/proyectos/quijote2/ctod/',tail='.cto
     g      = np.zeros((npix,nhorns*4))
     nhitspol = np.zeros((npix,nhorns*4))
 
-    for i in np.arange(nf):
-        ff   = path + root[i] + tail
-        btod = read_tfgi_btod2(ff)
 
-        data   = btod['DATA']
-        flag   = btod['FLAG']
-        wei_iqu= btod['WEI_IQU']
-        gl     = btod['GL']
-        gb     = btod['GB']
-        parang = btod['PAR']
-        msbin  = btod['MSBIN'] 
+    for idxh in np.arange(len(horns)):
+        ihorn = horns[idxh]
+        
+        # Read list of CTOD files for that horn.
+        print(f'(*) HORN: ihorn={ihorn}, and file {fflist[idxh]}')
+        root = np.loadtxt(fflist[idxh],unpack=True,dtype='U')
+        nf   = len(root)
 
-        nsamp = len(gl[:,0])
-        if nsamp != np.max(gl.shape):
-            sys.exit('SYS.EXIT() -- incorrect nsamp.')
-        navg  = np.int32(t_base*1000/msbin)
-        nbase = np.max([1,np.int32(nsamp/navg)])
-    
-        for ihorn in horns:
+        # Loop over tod files
+        for i in np.arange(nf):
+            ff   = path + root[i] + tail 
+            btod = read_tfgi_btod2(ff)
+
+            data   = btod['DATA']
+            flag   = btod['FLAG']
+            wei_iqu= btod['WEI_IQU']
+            gl     = btod['GL']
+            gb     = btod['GB']
+            parang = btod['PAR']
+            msbin  = btod['MSBIN'] 
+
+            nsamp = len(gl[:,0])
+            if nsamp != np.max(gl.shape):
+                sys.exit('SYS.EXIT() -- incorrect nsamp.')
+            navg  = np.int32(t_base*1000/msbin)
+            nbase = np.max([1,np.int32(nsamp/navg)])
+            #print(nsamp,navg,nbase)
+                
+            # Angles for that horn
             theta = np.deg2rad( 90.0 - gb[:,ihorn] )
             phi   = np.deg2rad( gl[:,ihorn] )
             ipix  = hp.ang2pix(nside, theta, phi, nest=nest)
@@ -94,7 +114,7 @@ def mambrino_tfgi(root, path='/net/calp-nas/proyectos/quijote2/ctod/',tail='.cto
                 iph90   = 1
                 iph180  = 2
                 iph270  = 3
-                if istgi[ihorn]==True:
+                if istgi[idxh]==True:
                     iph90  = 2
                     iph180 = 1
                     
@@ -181,6 +201,11 @@ def mambrino_tfgi(root, path='/net/calp-nas/proyectos/quijote2/ctod/',tail='.cto
     mapaQ[cut] = ( bb[cut]*f[cut] - cc[cut]*g[cut]) / determ[cut]
     mapaU[cut] = (-cc[cut]*f[cut] + aa[cut]*g[cut]) / determ[cut]
 
+    print(' Computing listpix (non zero pixels)')
+    coaddmap = np.sum(mapa+mapaQ+mapaU,axis=1)
+    listpix  = np.where( coaddmap != 0 )[0]
+
+
     print(' Setting UNSEEN pixels')
     ceros        = np.where(deno == 0)
     mapa[ceros]  = hp.UNSEEN
@@ -197,10 +222,47 @@ def mambrino_tfgi(root, path='/net/calp-nas/proyectos/quijote2/ctod/',tail='.cto
     #outmap[:,:,0] = mapa
     #outmap[:,:,1] = mapaQ
     #outmap[:,:,2] = mapaU
-    return mapa, nhits, mapaQ, mapaU, nhitspol
+    return mapa, nhits, mapaQ, mapaU, nhitspol, listpix
 
 
 # Write maps to FITS file
+def write_mambrino2_tfgi_maps(mapa, nhits, mapaQ, mapaU, nhitspol, listpix, ffout='test_mambrino.fits'):
+#    mapa2    = np.copy(mapa)
+#    mapa2[np.where(mapa == hp.UNSEEN)]=0.0
+    
+#    coaddmap = np.sum(mapa2,axis=1)
+#    listpix  = np.where( coaddmap != 0 )[0]
+
+    print('*** MAMBRINO_TFGI: Writing maps to files *** ')
+    
+    nlist     = len(listpix)
+    nchan     = len(mapa[0,:])
+    submapa   = np.zeros((nlist,nchan))
+    submapaQ  = np.zeros((nlist,nchan))
+    submapaU  = np.zeros((nlist,nchan))
+    subnhits  = np.zeros((nlist,nchan))
+    subnhitspol = np.zeros((nlist,nchan))
+
+    for k in np.arange(nchan):
+        submapa[:,k]  = mapa[listpix[:],k]
+        submapaQ[:,k] = mapaQ[listpix[:],k]
+        submapaU[:,k] = mapaU[listpix[:],k]
+        subnhits[:,k] = nhits[listpix[:],k]
+        subnhitspol[:,k] = nhitspol[listpix[:],k]
+
+    col1 = fits.Column(name='nside',format='K',array=[nside])
+    col2 = fits.Column(name='listpix', format=str(listpix.size)+'E', array = [listpix]) 
+    col3 = fits.Column(name='map', format=str(submapa.size)+'E', array = [submapa], dim=str(submapa.shape[::-1]) )
+    col4 = fits.Column(name='nhits', format=str(subnhits.size)+'E', array = [subnhits], dim=str(subnhits.shape[::-1]) )
+    col5 = fits.Column(name='mapQ', format=str(submapaQ.size)+'E', array = [submapaQ], dim=str(submapaQ.shape[::-1]) )
+    col6 = fits.Column(name='mapU', format=str(submapaU.size)+'E', array = [submapaU], dim=str(submapaU.shape[::-1]) )
+    col7 = fits.Column(name='nhitspol', format=str(subnhitspol.size)+'E', array = [subnhitspol], dim=str(subnhitspol.shape[::-1]) )
+
+    hdu = fits.BinTableHDU.from_columns([col1,col2,col3,col4,col5,col6,col7])
+    hdu.writeto(ffout,overwrite=True)
+    return
+
+
 def write_mambrino_tfgi_pol_maps(mapa,nhits,ffout='test_mambrino.fits'):
     col1 = fits.Column(name='map', format=str(mapa.size)+'E', array = [mapa], dim=str(mapa.shape[::-1]) )
     col2 = fits.Column(name='nhits', format=str(nhits.size)+'E', array = [nhits], dim=str(nhits.shape[::-1]) )
@@ -209,68 +271,71 @@ def write_mambrino_tfgi_pol_maps(mapa,nhits,ffout='test_mambrino.fits'):
     return
 
 
+
 ##############
 # MAIN code
 if __name__ == "__main__":
 
 # Binned btod maps
-    path  = '/net/calp-nas/proyectos/quijote2/ctod/sims/nonoise/' #'btod/test/'
-    path  = '/net/calp-nas/proyectos/quijote2/ctod/' #'btod/test/'
-    #path  = '/net/calp-nas/proyectos/quijote2/btod/' #'btod/test/'
-
-    source   = 'crab'
+    path  = '/net/calp-nas/proyectos/quijote2/tfgi/ctod/dec24/'
+    pathout = '/net/calp-nas/proyectos/quijote2/tfgi/maps/'
+    
     tail     = '.ctod2'
     nside    = 512
     nest     = False
     usewei   = True
     dobaserm = True
 
-    ff     = '/net/calp-nas/proyectos/quijote2/list/'+source+'/'+source+'_good.txt'
-    #ff     = '/net/calp-nas/proyectos/quijote2/list/crab/crab_2201.txt'
-    root   = np.loadtxt(ff,unpack=True,dtype='U')
-    mapa, nhits, mapaQ, mapaU, nhitspol = mambrino_tfgi(root, path=path,tail=tail, nside=nside, nest=nest, nhorns=7, usewei=usewei,
-                                            horns=np.array([0]),istgi=np.array([True]), dobaserm=dobaserm)
 
-    print('Writing maps to files')
-    print(mapaQ.shape)
-    txttail='_2201_ns'+str(nside)+'_ctod2'
-    txttail='_good_ns'+str(nside)+'_ctod2_wei_cal'
-    txttail='_good_ns'+str(nside)+'_ctod2_wei'
-    hp.write_map(source+'I'+txttail+'_V1.fits', mapa[:,0], nest=False, coord='G', overwrite=True)
-    hp.write_map(source+'Q'+txttail+'_V1.fits', mapaQ[:,0], nest=False, coord='G', overwrite=True)
-    hp.write_map(source+'U'+txttail+'_V1.fits', mapaU[:,0], nest=False, coord='G', overwrite=True)
+    # Testing
+    dothis = 0
+    if dothis !=0:
+        ff     = '/net/calp-nas/proyectos/quijote2/tfgi/list/crab/crab_2111_select_das24_pix23_allbtod.txt'
+        ff     = 'test.txt'
+        mapa, nhits, mapaQ, mapaU, nhitspol, listpix = mambrino2_tfgi(np.array([ff]*7), path=path,tail=tail, nside=nside, nest=nest, nhorns=7, usewei=usewei,
+                                                                      horns=np.arange(7),istgi=np.array([True]*7), dobaserm=dobaserm)
+        #    hp.write_map('test1.fits', mapa[:,0], nest=False, coord='G', overwrite=True)
 
-    print(' and writing all maps')
-    write_mambrino_tfgi_pol_maps(mapa[:,0:4],nhits[:,0:4],ffout='mambrino_I_'+source+txttail+'.fits')
-    write_mambrino_tfgi_pol_maps(mapaQ[:,0:4],nhitspol[:,0:4],ffout='mambrino_Q_'+source+txttail+'.fits')
-    write_mambrino_tfgi_pol_maps(mapaU[:,0:4],nhitspol[:,0:4],ffout='mambrino_U_'+source+txttail+'.fits')
+        
+    # 18/Dic72024. CRAB maps. 
+    dothis = 0
+    if dothis !=0:
+        fflist = np.array(['/net/calp-nas/proyectos/quijote2/tfgi/list/crab/crab_select_allbtod_das24.txt',
+                           '/net/calp-nas/proyectos/quijote2/tfgi/list/crab/crab_select_allbtod_das21.txt',
+                           '/net/calp-nas/proyectos/quijote2/tfgi/list/crab/crab_select_allbtod_das5.txt'] )
+        horns = np.array([0,2,4])
+        istgi = np.array([True,True,False])
+        mapa, nhits, mapaQ, mapaU, nhitspol, listpix = mambrino2_tfgi(fflist, path=path,tail=tail, nside=nside, nest=nest, nhorns=7, usewei=usewei,
+                                                                      horns=horns,istgi=istgi, dobaserm=dobaserm)
+        write_mambrino2_tfgi_maps(mapa, nhits, mapaQ, mapaU, nhitspol, listpix, ffout=pathout+'mambrino_crab_select_dec2024_wei_baserm.fits')
+
+
+    # 18/Dic72024. W63 maps.
+    dothis = 0
+    if dothis !=0:
+        fflist = np.array(['/net/calp-nas/proyectos/quijote2/tfgi/list/W63_cygnus/W63_scans_for_destriper_05_17_times_RMS_allbtod2_das24_W63.lst',
+                           '/net/calp-nas/proyectos/quijote2/tfgi/list/W63_cygnus/W63_scans_for_destriper_05_17_times_RMS_allbtod2_das21_W63.lst',
+                           '/net/calp-nas/proyectos/quijote2/tfgi/list/W63_cygnus/W63_scans_for_destriper_05_17_times_RMS_allbtod2_das5_W63.lst'])
+        horns = np.array([0,2,4])
+        istgi = np.array([True,True,False])
+        mapa, nhits, mapaQ, mapaU, nhitspol, listpix = mambrino2_tfgi(fflist, path=path,tail=tail, nside=nside, nest=nest, nhorns=7, usewei=usewei,
+                                                                      horns=horns,istgi=istgi, dobaserm=dobaserm)
+        write_mambrino2_tfgi_maps(mapa, nhits, mapaQ, mapaU, nhitspol, listpix, ffout=pathout+'mambrino_w63_select_dec2024_wei_baserm.fits')
+
     
+    # 18/Dic72024. W44 maps.
+    dothis = 1
+    if dothis !=0:
+        fflist = np.array(['/net/calp-nas/proyectos/quijote2/tfgi/list/W44/W44_scans_for_destriper_05_17_times_RMS_allbtod2_das24.lst',
+                           '/net/calp-nas/proyectos/quijote2/tfgi/list/W44/W44_scans_for_destriper_05_17_times_RMS_allbtod2_das21.lst',
+                           '/net/calp-nas/proyectos/quijote2/tfgi/list/W44/W44_scans_for_destriper_05_17_times_RMS_allbtod2_das5.lst' ] )
+        horns = np.array([0,2,4])
+        istgi = np.array([True,True,False])
+        mapa, nhits, mapaQ, mapaU, nhitspol, listpix = mambrino2_tfgi(fflist, path=path,tail=tail, nside=nside, nest=nest, nhorns=7, usewei=usewei,
+                                                                      horns=horns,istgi=istgi, dobaserm=dobaserm)
+        write_mambrino2_tfgi_maps(mapa, nhits, mapaQ, mapaU, nhitspol, listpix, ffout=pathout+'mambrino_w44_select_dec2024_wei_baserm.fits')
+
+
+        
     sys.exit('Code ends.')
-
-# Old code. Running perseus maps
-  
-    listpath    = '/net/calp-nas/proyectos/quijote2/list/perseus/Perseus_selected_observations_2/'
-    listpath    = '/net/calp-nas/proyectos/quijote2/list/perseus/Perseus_half_maps_2/'
-    txthalf     = 'half1' #'selection_2'
-    root        = np.loadtxt(listpath+'Perseus_flagged_pix24_ch1_'+txthalf+'_clean.txt',unpack=True,dtype='U')
-    mapa, nhits = mambrino_tfgi(root, path=path,tail=tail, nside=nside, nest=nest, nhorns=7, usewei=usewei, horns=np.array([0]))
-
-    roots = ['Perseus_flagged_pix21_ch1_'+txthalf+'_clean.txt','Perseus_flagged_pix25_ch1_'+txthalf+'_clean.txt',
-                 'Perseus_flagged_pix4_ch1_'+txthalf+'_clean.txt', 'Perseus_flagged_pix6_ch1_'+txthalf+'_clean.txt']
-    horns = np.asarray([2,6,3,5])
-
-    for j in np.arange(4):
-        root = np.loadtxt(listpath+roots[j], unpack=True,dtype='U')
-        mapai, nhitsi = mambrino_tfgi(root, path=path,tail=tail, nside=nside, nest=nest, nhorns=7, usewei=usewei, horns=np.array([horns[j]]))
-        i1 = horns[j]*4
-        i2 = i1+4
-        mapa[:,i1:i2]  = np.copy(mapai[:,i1:i2])
-        nhits[:,i1:i2] = np.copy(nhitsi[:,i1:i2])
-    
-    print('Writing...')
-    write_mambrino_tfgi_maps(mapa,nhits,ffout='mambrino_perseus_ctod_flagged_select17nov23_wei_half1.fits')
-
-    
-
-
 
