@@ -13,6 +13,7 @@ HISTORY:
 * 12/02/2024 - Now including polarization map-making. Tested with TauA simulations.
 * 17/12/2024 - sancho_mambrino2_tfgi. Now accepts a different list for each pixel/DAS number, as it is the usual case. 
                Thus, the input is now the lists of files
+* 10/02/2025 - using tfgi_params.py, and reading reference angles.
 
 """
 
@@ -21,7 +22,9 @@ import healpy as hp
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from sancho_tfgi_io import read_tfgi_btod2
+from tfgi_params import *
 import sys
+
 
 def mambrino2_tfgi(fflist=np.array(['/net/calp-nas/proyectos/quijote2/tfgi/list/crab/crab_2201.txt']*7), path='/net/calp-nas/proyectos/quijote2/ctod/',tail='.ctod2',
                    nside=512, nest=False, nhorns=7, horns=np.arange(7), dobaserm=True, t_base=6.0, usewei=True, istgi=np.ones(7,dtype=bool)):
@@ -74,10 +77,12 @@ def mambrino2_tfgi(fflist=np.array(['/net/calp-nas/proyectos/quijote2/tfgi/list/
         nf   = len(root)
 
         # Loop over tod files
+        use_das = True
         for i in np.arange(nf):
             ff   = path + root[i] + tail 
             btod = read_tfgi_btod2(ff)
 
+            jd     = btod['JD']
             data   = btod['DATA']
             flag   = btod['FLAG']
             wei_iqu= btod['WEI_IQU']
@@ -92,18 +97,26 @@ def mambrino2_tfgi(fflist=np.array(['/net/calp-nas/proyectos/quijote2/tfgi/list/
             navg  = np.int32(t_base*1000/msbin)
             nbase = np.max([1,np.int32(nsamp/navg)])
             #print(nsamp,navg,nbase)
+
+            # Initialize das values
+            if use_das:
+                das, horn_fp_loc, pix_id = read_tfgi_info_etc_file(jd[0])
+                use_das = False
                 
             # Angles for that horn
             theta = np.deg2rad( 90.0 - gb[:,ihorn] )
             phi   = np.deg2rad( gl[:,ihorn] )
             ipix  = hp.ang2pix(nside, theta, phi, nest=nest)
 
-            ang_ref = 0.0 ##-50.22
-            psi     = (2*parang[:,ihorn] - 2*ang_ref)*np.pi/180. # in radians. No reference angle applied at the moment.
+            ang_ref_matrix = tfgi_ref_angle(jd[0],das=das)
+            #print(ang_ref_matrix)
+            
 
             for ichan in np.arange(4):
                 k = ihorn*4 + ichan
-                
+                ang_ref = ang_ref_matrix[ihorn,ichan] #0.0 
+                psi     = 2*(parang[:,ihorn] - ang_ref)*np.pi/180. # in radians. 
+
                 # Intensity timeline
                 Vd    = ( data[:,0,k] + data[:,1,k] + data[:,2,k] + data[:,3,k] ) / 2.
                 flagd = flag[:,0,k] + flag[:,1,k] + flag[:,2,k] + flag[:,3,k]
@@ -323,8 +336,8 @@ if __name__ == "__main__":
         write_mambrino2_tfgi_maps(mapa, nhits, mapaQ, mapaU, nhitspol, listpix, ffout=pathout+'mambrino_w63_select_dec2024_wei_baserm.fits')
 
     
-    # 18/Dic72024. W44 maps.
-    dothis = 1
+    # 18/Dic/2024. W44 maps.
+    dothis = 0
     if dothis !=0:
         fflist = np.array(['/net/calp-nas/proyectos/quijote2/tfgi/list/W44/W44_scans_for_destriper_05_17_times_RMS_allbtod2_das24.lst',
                            '/net/calp-nas/proyectos/quijote2/tfgi/list/W44/W44_scans_for_destriper_05_17_times_RMS_allbtod2_das21.lst',
@@ -335,6 +348,29 @@ if __name__ == "__main__":
                                                                       horns=horns,istgi=istgi, dobaserm=dobaserm)
         write_mambrino2_tfgi_maps(mapa, nhits, mapaQ, mapaU, nhitspol, listpix, ffout=pathout+'mambrino_w44_select_dec2024_wei_baserm.fits')
 
+    # 10/Feb/2025. W44 maps but with calibrated angle
+    dothis = 0
+    if dothis !=0:
+        fflist = np.array(['/net/calp-nas/proyectos/quijote2/tfgi/list/W44/W44_scans_for_destriper_05_17_times_RMS_allbtod2_das24.lst',
+                           '/net/calp-nas/proyectos/quijote2/tfgi/list/W44/W44_scans_for_destriper_05_17_times_RMS_allbtod2_das21.lst',
+                           '/net/calp-nas/proyectos/quijote2/tfgi/list/W44/W44_scans_for_destriper_05_17_times_RMS_allbtod2_das5.lst' ] )
+        horns = np.array([0,2,4])
+        istgi = np.array([True,True,False])
+        mapa, nhits, mapaQ, mapaU, nhitspol, listpix = mambrino2_tfgi(fflist, path=path,tail=tail, nside=nside, nest=nest, nhorns=7, usewei=usewei,
+                                                                      horns=horns,istgi=istgi, dobaserm=dobaserm)
+        write_mambrino2_tfgi_maps(mapa, nhits, mapaQ, mapaU, nhitspol, listpix, ffout=pathout+'mambrino_w44_select_feb2025_wei_baserm_angle_final.fits')
+
+    # 11/Feb/2025. W63 maps with calibrated angle.
+    dothis = 1
+    if dothis !=0:
+        fflist = np.array(['/net/calp-nas/proyectos/quijote2/tfgi/list/W63_cygnus/W63_scans_for_destriper_05_17_times_RMS_allbtod2_das24_W63.lst',
+                           '/net/calp-nas/proyectos/quijote2/tfgi/list/W63_cygnus/W63_scans_for_destriper_05_17_times_RMS_allbtod2_das21_W63.lst',
+                           '/net/calp-nas/proyectos/quijote2/tfgi/list/W63_cygnus/W63_scans_for_destriper_05_17_times_RMS_allbtod2_das5_W63.lst'])
+        horns = np.array([0,2,4])
+        istgi = np.array([True,True,False])
+        mapa, nhits, mapaQ, mapaU, nhitspol, listpix = mambrino2_tfgi(fflist, path=path,tail=tail, nside=nside, nest=nest, nhorns=7, usewei=usewei,
+                                                                      horns=horns,istgi=istgi, dobaserm=dobaserm)
+        write_mambrino2_tfgi_maps(mapa, nhits, mapaQ, mapaU, nhitspol, listpix, ffout=pathout+'mambrino_w63_select_dec2024_wei_baserm_angle_final.fits')
 
         
     sys.exit('Code ends.')
