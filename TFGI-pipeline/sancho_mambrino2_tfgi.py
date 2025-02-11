@@ -370,7 +370,7 @@ if __name__ == "__main__":
         istgi = np.array([True,True,False])
         mapa, nhits, mapaQ, mapaU, nhitspol, listpix = mambrino2_tfgi(fflist, path=path,tail=tail, nside=nside, nest=nest, nhorns=7, usewei=usewei,
                                                                       horns=horns,istgi=istgi, dobaserm=dobaserm)
-        write_mambrino2_tfgi_maps(mapa, nhits, mapaQ, mapaU, nhitspol, listpix, ffout=pathout+'mambrino_w63_select_dec2024_wei_baserm_angle_final.fits')
+        write_mambrino2_tfgi_maps(mapa, nhits, mapaQ, mapaU, nhitspol, listpix, ffout=pathout+'mambrino_w63_select_feb20245_wei_baserm_angle_final.fits')
 
         
     sys.exit('Code ends.')
