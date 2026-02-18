@@ -13,11 +13,12 @@ Software associated to the [QUIJOTE experiment](https://research.iac.es/proyecto
 ## MFI instrument
 - [MFI-pipeline](MFI-pipeline/). Routines used in the QUIJOTE-MFI pipeline (2012-2023).
 
-
 ## TFGI instrument
 - [TFGI-pipeline](TFGI-pipeline/). Python routines for the basic processing of QUIJOTE TFGI data (2023-). 
 
-
+## MFI2 instrument
+- [MFI2-pipeline](MFI2-pipeline/). Routines used in the QUIJOTE-MFI2 pipeline (2024-). Includes the IDL routines used when the MFI2 was combined with the old MFI DAS, and the new python routines with the FPGA DAS.
+- 
 
 
 
