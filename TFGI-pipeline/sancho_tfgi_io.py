@@ -13,11 +13,13 @@ Basic I/O routines for the data processing of TFGI data.
 * read_tfgi_sci2
 
 * write_tfgi_btod2
+* write_tfgi_ctod2
 
 
 HISTORY:
 * 10/07/2023 - original version. JARM
 * 25/10/2023 - updated read_tfgi_btod2, to include WEI_IQU. Added read_tfgi_ctod2
+* 30/01/2026 - adding write_tfgi_ctod2
 
 """
 
@@ -337,4 +339,48 @@ def write_tfgi_btod2(btod, ffout, overwrite=False):
     # write file
     hdu.writeto(ffout,overwrite=overwrite)
     
+    return
+
+# Write CTOD file
+def write_tfgi_ctod2(ctod, ffout, overwrite=False):
+
+    print(' WRITE_TFGI_CTOD2: writing '+ffout)
+    # Definition of columns in CTOD2 files
+    col1 = fits.Column(name='NHORNS', format='I', array = [ctod['NHORNS']])
+
+    col2 = fits.Column(name='LISTCHAN', format=str(len(ctod['LISTCHAN']))+'I', array = [ctod['LISTCHAN']] )
+    col3 = fits.Column(name='LISTPIX', format=str(len(ctod['LISTPIX']))+'I', array = [ctod['LISTPIX']] )
+    col4 = fits.Column(name='LISTDAS', format=str(len(ctod['LISTDAS']))+'I', array = [ctod['LISTDAS']] )
+
+    col5 = fits.Column(name='JD', format=str(len(ctod['JD']))+'D', array = [ctod['JD']] )
+    col6 = fits.Column(name='AZ', format=str(len(ctod['AZ']))+'E', array = [ctod['AZ']] )
+    col7 = fits.Column(name='EL', format=str(len(ctod['EL']))+'E', array = [ctod['EL']] )
+
+    col8 = fits.Column(name='GL', format=str(ctod['GL'].size)+'E', array = [ctod['GL']], dim=str(ctod['GL'].shape[::-1]) )
+    col9 = fits.Column(name='GB', format=str(ctod['GB'].size)+'E', array = [ctod['GB']], dim=str(ctod['GB'].shape[::-1]) )
+    col10 = fits.Column(name='PAR', format=str(ctod['PAR'].size)+'E', array = [ctod['PAR']], dim=str(ctod['PAR'].shape[::-1]) )
+
+    col11 = fits.Column(name='DATA', format=str(ctod['DATA'].size)+'E', array = [ctod['DATA']], dim=str(ctod['DATA'].shape[::-1]) )
+    col12 = fits.Column(name='WEI', format=str(ctod['WEI'].size)+'E', array = [ctod['WEI']], dim=str(ctod['WEI'].shape[::-1]) )
+
+    col13 = fits.Column(name='FLAG', format=str(ctod['FLAG'].size)+'I', array = [ctod['FLAG']], dim=str(ctod['FLAG'].shape[::-1]) )
+
+    col14 = fits.Column(name='AZHORN', format=str(ctod['AZHORN'].size)+'E', array = [ctod['AZHORN']], dim=str(ctod['AZHORN'].shape[::-1]) )
+    col15 = fits.Column(name='ELHORN', format=str(ctod['ELHORN'].size)+'E', array = [ctod['ELHORN']], dim=str(ctod['ELHORN'].shape[::-1]) )
+
+    col16 = fits.Column(name='MSBIN', format='E', array = [ctod['MSBIN']])
+    col17 = fits.Column(name='POINTINGMODEL', format=str(len(ctod['POINTINGMODEL']))+'A', array = [ctod['POINTINGMODEL']])
+
+    # === CTOD-only columns ===
+    col18 = fits.Column( name='WEI_IQU', format=str(ctod['WEI_IQU'].size)+'E', array=[ctod['WEI_IQU']], dim=str(ctod['WEI_IQU'].shape[::-1]))
+    col19 = fits.Column( name='GAINMODEL', format=str(len(ctod['GAINMODEL']))+'A', array=[ctod['GAINMODEL']])
+    col20 = fits.Column( name='GAINS', format=str(ctod['GAINS'].size)+'E', array=[ctod['GAINS']], dim=str(ctod['GAINS'].shape[::-1]))
+
+    # Build binary table
+    hdu = fits.BinTableHDU.from_columns([ col1, col2, col3, col4, col5, col6, col7, col8, col9, col10, 
+                                         col11, col12, col13, col14, col15, col16, col17, col18, col19, col20 ])
+
+    # Write file
+    hdu.writeto(ffout, overwrite=overwrite)
+
     return
