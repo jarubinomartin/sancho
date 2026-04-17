@@ -1,12 +1,16 @@
 '''
 @author: jalberto
 
-This program provides the unit conversions between three usual quantities in CMB analyses:
-       K_CMB (thermodynamic), K_RJ (rayleigh jeans), and Jy/sr (intensity)
+This program provides the unit conversions between usual quantities in CMB analyses:
+       K_CMB (thermodynamic), K_RJ (rayleigh jeans), and Jy/sr (intensity).
+
+Also provides the conversion between Planck brightness temperature (adopted by some codes at AM) and the 
+usual RJ brightness temperarure (K_RJ) used in Radioastronomy.
 
 HISTORY:
  25/Mar/2025 - original version, based on cmb_unit_conversion.pro
  04/Dec/2025 - added planck_uc_hfi(), which returns the HFI unit conversions.
+ 17/Apr/2026 - added routines to convert between different brightness temperature conventions (Planck brightness or RJ brightness)
 
 '''
 
@@ -14,12 +18,14 @@ import numpy as np
 from scipy.constants import c,h,k
 Tcmb = 2.72548 # TCMB from Fixsen et al (2009).
 
-def cmb_unit_conversion(nuGHz,option='KCMB2KRJ',help=False):
+def cmb_unit_conversion(nuGHz=None,option='KCMB2KRJ',help=False):
 
     casos = ['KCMB2KRJ', 'KRJ2KCMB', 'KCMB2Jysr', 'Jysr2KCMB', 'KRJ2Jysr', 'Jysr2KRJ']
-    if help==True:
+    if nuGHz is None or help:
        print('  Syntax -- cmb_unit_conversion(nuGHz,option=)')
        print('  Possible options are',casos)
+       print('  Default option is KCMB2KRJ.')
+       return None
 
     # Basic computation
     nu  = nuGHz*1e9
@@ -75,3 +81,36 @@ def planck_uc_hfi(use_bps=True):
    if use_bps==False: output = uc_hfi_no_bps 
 
    return output
+
+# Routine to convert brightness temperature defintions, from Planck brightness temperature (as in Rybicki & Lightman)
+# corresponding to I_nu = B_nu(T)), to the usual RJ brightness temperature used in Radioastronomy
+def brightness_temperature_conversion(nuGHz=None, T=None, option='Planck2RJ',help=False): 
+   casos = ['Planck2RJ', 'RJ2Planck']
+
+   if nuGHz is None or T is None or help:
+      print("""
+Usage:
+    brightness_temperature_conversion(nuGHz, T, option='Planck2RJ')
+
+Parameters:
+    nuGHz : frequency in GHz
+    T     : temperature in K (either Planck brightness or K_RJ)
+    option: 'Planck2RJ' o 'RJ2Planck'
+
+Example:
+    brightness_temperature_conversion(30.0, 2.7)
+            """)
+      return None
+
+   nu  = nuGHz*1e9 # in Hz, SI units
+   x   = h * nu / (k*T)
+
+   if option == 'Planck2RJ':
+      fac = x /(np.exp(x)-1.) * T
+   elif option == 'RJ2Planck':
+      fac = (h*nu/k) / np.log( x +1 ) 
+   else:
+      print("Temperature brightness units not identified. Returning -1")
+      fac = -1
+
+   return fac
